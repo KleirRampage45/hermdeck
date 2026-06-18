@@ -1,0 +1,23 @@
+# HermDeck — systemd user service for Hermes Agent
+# Path: ~/.config/systemd/user/hermes-agent.service
+
+[Unit]
+Description=HermDeck — Hermes Agent for Steam Deck
+Documentation=https://github.com/KleirRampage45/hermdeck
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/hermes-agent/venv/bin/hermes gateway
+WorkingDirectory=%h/hermes-agent
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=HERMES_HOME=%h/.hermes
+
+[Install]
+WantedBy=default.target

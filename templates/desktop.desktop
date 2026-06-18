@@ -1,0 +1,12 @@
+# HermDeck — Hermes Desktop app launcher
+# Path: ~/.local/share/applications/hermes-desktop.desktop
+
+[Desktop Entry]
+Name=Hermes Desktop
+Comment=HermDeck — AI Agent GUI for Steam Deck
+Exec=%h/hermes-agent/venv/bin/hermes desktop
+Icon=%h/.hermes/assets/hermes-icon.png
+Terminal=false
+Type=Application
+Categories=Utility;AI;Development;
+StartupNotify=true
