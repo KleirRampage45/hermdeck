@@ -3,6 +3,7 @@
  * HermDeck — 🎮 One-command Hermes Agent installer for Steam Deck
  *
  * Usage: npx @asukat/hermdeck
+ *   or:  curl -fsSL https://raw.githubusercontent.com/KleirRampage45/hermdeck/main/scripts/bootstrap.sh | sh
  *
  * Zero external dependencies. Pure Node.js + ANSI colors.
  */
@@ -13,8 +14,9 @@ import { installHermesAgent, ensureNodeJS, ensureGit } from './install';
 import { configWizard, writeHermesConfig } from './config';
 import { setupService, isServiceRunning } from './systemd';
 import { setupDesktopEntries } from './desktop';
+import { sudoNoPassword, promptAndCacheSudo } from './sudo';
 
-// ── ANSI Colors (zero deps) ──────────────────────────
+// ── ANSI Helpers ──────────────────────────────────────
 const c = {
   cyan: (s: string) => `\x1b[36m${s}\x1b[0m`,
   green: (s: string) => `\x1b[32m${s}\x1b[0m`,
@@ -26,32 +28,21 @@ const c = {
 
 const BANNER = `
 ${c.cyan('╔══════════════════════════════════════════╗')}
-${c.cyan('║')}          ${c.bold('🎮 HermDeck v0.1.0')}          ${c.cyan('║')}
+${c.cyan('║')}          ${c.bold('🎮 HermDeck v0.1.2')}          ${c.cyan('║')}
 ${c.cyan('║')}     ${c.dim('"Deck your agent in one command"')}     ${c.cyan('║')}
 ${c.cyan('╚══════════════════════════════════════════╝')}
 `;
 
-function step(num: number, label: string) {
-  console.log(c.cyan(`\n  ── [${num}/7] ${label} ──\n`));
+function step(n: number, label: string) {
+  console.log(c.cyan(`\n  ── [${n}/8] ${label} ──\n`));
 }
 
-function ok(msg: string) {
-  console.log(`  ${c.green('✓')} ${msg}`);
-}
+function ok(msg: string) { console.log(`  ${c.green('✓')} ${msg}`); }
+function warn(msg: string) { console.log(`  ${c.yellow('⚠')} ${msg}`); }
+function fail(msg: string) { console.log(`  ${c.red('✗')} ${msg}`); }
+function info(msg: string) { console.log(`  ${c.dim('→')} ${msg}`); }
 
-function warn(msg: string) {
-  console.log(`  ${c.yellow('⚠')} ${msg}`);
-}
-
-function fail(msg: string) {
-  console.log(`  ${c.red('✗')} ${msg}`);
-}
-
-function info(msg: string) {
-  console.log(`  ${c.dim('→')} ${msg}`);
-}
-
-async function progress(label: string, fn: () => Promise<{ success: boolean; message: string }>): Promise<{ success: boolean; message: string }> {
+async function progress(label: string, fn: () => Promise<{ success: boolean; message: string }>) {
   process.stdout.write(`  ${c.yellow('◌')} ${label}...\r`);
   const spinner = setInterval(() => {
     process.stdout.write(`  ${c.yellow('◌')} ${label}...\r`);
@@ -60,11 +51,8 @@ async function progress(label: string, fn: () => Promise<{ success: boolean; mes
     const result = await fn();
     clearInterval(spinner);
     process.stdout.write(' '.repeat(60) + '\r');
-    if (result.success) {
-      ok(result.message || label);
-    } else {
-      fail(`${label}: ${result.message}`);
-    }
+    if (result.success) ok(result.message || label);
+    else fail(`${label}: ${result.message}`);
     return result;
   } catch (err: any) {
     clearInterval(spinner);
@@ -101,76 +89,83 @@ async function main() {
 
   if (sys.hasPython) ok('Python 3 found');
   else {
-    fail('Python 3 is required but not found.');
-    console.log(c.yellow('\n  This is unusual — SteamOS ships with Python. Try:\n'));
-    console.log(c.dim('    sudo steamos-readonly disable && sudo pacman -S python && sudo steamos-readonly enable\n'));
+    fail('Python 3 is required. Try: sudo steamos-readonly disable && sudo pacman -S python && sudo steamos-readonly enable');
     process.exit(1);
   }
 
   if (sys.hasHermes) {
-    warn('Existing Hermes installation found at ~/.hermes/');
-    info('The installer will update it in-place');
+    warn('Existing Hermes Agent found at ~/.hermes/ — will upgrade');
   }
 
-  // ── Step 2: Dependencies ────────────────────────────
-  step(2, 'Dependencies');
+  // ── Step 2: Sudo Access ─────────────────────────────
+  step(2, 'Sudo Access');
+  if (sys.isSteamOS) {
+    if (sudoNoPassword()) {
+      ok('Passwordless sudo — no prompt needed');
+    } else {
+      info('SteamOS read-only filesystem requires sudo for some operations.');
+      info('Your password is never stored — cached via sudo -v for 5 minutes.\n');
+      const gotSudo = await promptAndCacheSudo();
+      if (!gotSudo) {
+        warn('Sudo access not granted. Git install will fail if missing, but other steps continue.');
+      } else {
+        ok('Sudo access granted');
+      }
+    }
+  } else {
+    info('Not SteamOS — skipping sudo setup');
+  }
 
+  // ── Step 3: Dependencies ────────────────────────────
+  step(3, 'Dependencies');
   if (!sys.hasNode) {
-    await progress('Installing Node.js', () => ensureNodeJS(homeDir));
+    await progress('Installing Node.js to ~/.local/bin/', () => ensureNodeJS(homeDir));
   } else {
     ok('Node.js ready');
   }
-
   if (!sys.hasGit) {
     await progress('Installing Git', () => ensureGit(homeDir));
   } else {
     ok('Git ready');
   }
 
-  // ── Step 3: Install Hermes Agent ────────────────────
-  step(3, 'Install Hermes Agent');
-
+  // ── Step 4: Install Hermes Agent ────────────────────
+  step(4, 'Install Hermes Agent');
   if (!sys.hasInternet) {
-    fail('No internet connection. Hermes Agent cannot be downloaded.');
+    fail('No internet connection. Cannot download Hermes Agent.');
     process.exit(1);
   }
-
-  const installResult = await progress('Installing Hermes Agent', () =>
+  const installResult = await progress('Downloading & installing Hermes Agent', () =>
     installHermesAgent(homeDir)
   );
-
   if (!installResult?.success) {
     fail('Hermes Agent installation failed.');
     console.log(c.yellow(`\n  ${installResult?.message}`));
-    console.log(c.dim('\n  You can retry by running:'));
+    console.log(c.dim('\n  Retry manually:'));
     console.log(c.dim('    curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --non-interactive --skip-setup\n'));
     process.exit(1);
   }
 
-  // ── Step 4: Configuration ───────────────────────────
-  step(4, 'Configuration');
-  console.log(c.dim('  Let\'s set up how your agent connects to the world.\n'));
-
+  // ── Step 5: Configuration ───────────────────────────
+  step(5, 'Configuration');
+  console.log(c.dim('  Set up how your agent connects.\n'));
   const config = await configWizard(homeDir);
   await writeHermesConfig(homeDir, config);
   ok('Configuration saved to ~/.hermes/config.yaml');
 
-  // ── Step 5: Systemd Service ─────────────────────────
-  step(5, 'Auto-start Service');
+  // ── Step 6: Systemd Service ─────────────────────────
+  step(6, 'Auto-start Service');
   const serviceResult = await setupService(homeDir);
   ok(serviceResult.message);
+  if (isServiceRunning()) ok('Hermes Agent is RUNNING');
 
-  if (isServiceRunning()) {
-    ok('Hermes Agent is RUNNING');
-  }
-
-  // ── Step 6: Desktop Integration ─────────────────────
-  step(6, 'Desktop Integration');
+  // ── Step 7: Desktop Integration ─────────────────────
+  step(7, 'Desktop Integration');
   const desktopResult = await setupDesktopEntries(homeDir);
   ok(desktopResult.message);
-  info('Look for "Hermes Deck Agent" in your application menu');
+  info('Find "Hermes Deck Agent" in your application menu');
 
-  // ── Step 7: Done! ───────────────────────────────────
+  // ── Step 8: Done! ───────────────────────────────────
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
   console.log(`\n${c.green('╔══════════════════════════════════════════╗')}`);
@@ -182,8 +177,8 @@ async function main() {
   console.log(`  ${c.bold('→')} Type ${c.cyan('hermes')} in Konsole for the TUI`);
   console.log(`  ${c.bold('→')} Find ${c.cyan('"Hermes Deck Agent"')} in your app menu\n`);
 
-  console.log(c.green('  📌 The agent SURVIVES SteamOS updates'));
-  console.log(c.green('  📌 Auto-starts when your Deck boots'));
+  console.log(c.green('  📌 Survives SteamOS updates'));
+  console.log(c.green('  📌 Auto-starts at boot'));
   console.log(c.green('  📌 Reconnects after sleep/wake\n'));
 
   console.log(c.dim('  ─────────────────────────────────'));
@@ -193,6 +188,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`\n${`\x1b[31m`}  ✗ HermDeck failed: ${err.message}${`\x1b[0m`}`);
+  console.error(`\n${c.red('  ✗ HermDeck failed:')} ${err.message}`);
   process.exit(1);
 });
