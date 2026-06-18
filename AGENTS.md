@@ -12,9 +12,17 @@ This file is READ by AI agents working on this project (including me). Keep it u
 ## Build & Publish
 
 ```bash
-npm run build     # compiles src/ → dist/
-npm publish       # publishes to npm under @asukat/hermdeck
+npm run build              # compiles src/ → dist/
+npm version patch          # bumps version
+npm publish --access public  # publishes to npm under @asukat/hermdeck
+git push origin main --tags
 ```
+
+## Important: no external deps
+
+HermDeck uses ZERO npm dependencies. All terminal colors are via ANSI escape codes.
+This keeps the package tiny (~17KB) and avoids ESM/CJS compatibility issues.
+`chalk` was removed in v0.1.1 for this reason.
 
 ## Project Structure
 
