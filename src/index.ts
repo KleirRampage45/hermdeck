@@ -27,7 +27,7 @@ const c = {
 
 const BANNER = `
 ${c.cyan('╔══════════════════════════════════════════╗')}
-${c.cyan('║')}          ${c.bold('🎮 HermDeck v0.1.3')}          ${c.cyan('║')}
+${c.cyan('║')}          ${c.bold('🎮 HermDeck v0.1.4')}          ${c.cyan('║')}
 ${c.cyan('║')}     ${c.dim('"Deck your agent in one command"')}     ${c.cyan('║')}
 ${c.cyan('╚══════════════════════════════════════════╝')}
 `;

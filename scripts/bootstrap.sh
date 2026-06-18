@@ -16,7 +16,7 @@ warn()  { echo -e "${YELLOW}  ⚠${NC} $1"; }
 
 echo ""
 echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║        🎮 HermDeck Bootstrap v0.1.3       ║${NC}"
+echo -e "${CYAN}║        🎮 HermDeck Bootstrap v0.1.4       ║${NC}"
 echo -e "${CYAN}║     One-command Hermes for Steam Deck      ║${NC}"
 echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
 echo ""
@@ -77,7 +77,7 @@ echo ""
 
 if command -v npx &>/dev/null; then
     # npx available — use it
-    npx @asukat/hermdeck "$@"
+    npx @asukat/hermdeck "$@" < /dev/tty
 elif command -v node &>/dev/null; then
     # No npx — download package and run directly
     info "Downloading HermDeck..."
@@ -87,7 +87,7 @@ elif command -v node &>/dev/null; then
     TARBALL=$(curl -fsSL https://registry.npmjs.org/@asukat/hermdeck/latest | grep -o '"tarball":"[^"]*"' | cut -d'"' -f4)
     curl -fsSL "$TARBALL" -o hermdeck.tgz
     tar -xf hermdeck.tgz
-    node package/bin/hermdeck.js "$@"
+    node package/bin/hermdeck.js "$@" < /dev/tty
     cd / && rm -rf "$TMP_DIR"
 else
     warn "Node.js not available — running official installer."

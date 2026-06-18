@@ -7,6 +7,7 @@
 
 import { execSync } from 'child_process';
 import * as readline from 'readline';
+import { getStdin } from './utils';
 
 /**
  * Check if the current user can run sudo without a password.
@@ -31,7 +32,7 @@ export function sudoNoPassword(): boolean {
  */
 export async function promptAndCacheSudo(): Promise<boolean> {
   const rl = readline.createInterface({
-    input: process.stdin,
+    input: getStdin(),
     output: process.stdout,
   });
 

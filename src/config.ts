@@ -6,6 +6,7 @@
 
 import { mkdir, writeFile } from 'fs/promises';
 import * as readline from 'readline';
+import { getStdin } from './utils';
 
 const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
@@ -21,7 +22,7 @@ export interface HermDeckConfig {
 
 export async function configWizard(homeDir: string): Promise<HermDeckConfig> {
   const rl = readline.createInterface({
-    input: process.stdin,
+    input: getStdin(),
     output: process.stdout,
   });
 
