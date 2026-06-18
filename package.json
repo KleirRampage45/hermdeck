@@ -1,6 +1,6 @@
 {
   "name": "@asukat/hermdeck",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "🎮 One-command Hermes Agent installer for Steam Deck. npx @asukat/hermdeck and go.",
   "keywords": [
     "steam-deck",

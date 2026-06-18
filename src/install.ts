@@ -66,7 +66,7 @@ export async function ensureNodeJS(homeDir: string): Promise<InstallResult> {
   }
 
   const localBin = `${homeDir}/.local/bin`;
-  const nodeVersion = '22.4.1';
+  const nodeVersion = '22.12.0';
   const arch = process.arch === 'x64' ? 'x64' : 'arm64';
   const url = `https://nodejs.org/dist/v${nodeVersion}/node-v${nodeVersion}-linux-${arch}.tar.xz`;
 

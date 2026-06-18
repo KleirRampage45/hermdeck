@@ -1,11 +1,11 @@
 /**
  * HermDeck — Desktop Integration
  *
- * Creates KDE Plasma desktop entries that survive SteamOS updates
- * (everything in ~/.local/share/applications/ is preserved).
+ * Creates KDE Plasma desktop entries that survive SteamOS updates.
+ * Searches for the hermes binary in multiple possible locations.
  */
 
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, writeFile, access } from 'fs/promises';
 
 export interface DesktopResult {
   success: boolean;
@@ -13,57 +13,75 @@ export interface DesktopResult {
 }
 
 /**
- * Create ~/.local/share/applications/hermes.desktop
+ * Search multiple paths for the hermes binary, return first found.
  */
-export async function setupDesktopEntries(homeDir: string): Promise<DesktopResult> {
-  const appsDir = `${homeDir}/.local/share/applications`;
-  await mkdir(appsDir, { recursive: true });
-
-  // Find hermes binary
-  const possiblePaths = [
+async function findHermesBin(homeDir: string): Promise<string> {
+  const paths = [
     `${homeDir}/.hermes/hermes-agent/venv/bin/hermes`,
     `${homeDir}/.hermes/hermes-agent/bin/hermes`,
+    `${homeDir}/.local/bin/hermes`,
+    // System paths as last resort
+    '/usr/local/bin/hermes',
+    '/usr/bin/hermes',
   ];
 
-  let hermesBin = 'hermes'; // fallback
-  const { access } = await import('fs/promises');
-  for (const p of possiblePaths) {
+  for (const p of paths) {
     try {
       await access(p);
-      hermesBin = p;
-      break;
+      return p;
     } catch {}
   }
 
-  // Create TUI launcher
+  // Fallback — just use 'hermes' and hope it's on PATH
+  return 'hermes';
+}
+
+/**
+ * Create ~/.local/share/applications/hermes-deck.desktop
+ * and optionally launch Hermes Desktop after install.
+ */
+export async function setupDesktopEntries(
+  homeDir: string,
+  autoLaunch = false
+): Promise<DesktopResult> {
+  const appsDir = `${homeDir}/.local/share/applications`;
+  await mkdir(appsDir, { recursive: true });
+
+  const hermesBin = await findHermesBin(homeDir);
+
+  // Use konsole -e so clicking opens a terminal with Hermes TUI
+  // If hermes has a desktop mode, use that
   const desktopContent = `[Desktop Entry]
-Name=Hermes Deck Agent
-Comment=Chat with your Hermes AI agent on Steam Deck
-Exec=konsole -e ${hermesBin}
+Name=Hermes Deck
+Comment=AI Agent for Steam Deck — installed by HermDeck
+Exec=${hermesBin} desktop
 Icon=utilities-terminal
 Terminal=false
 Type=Application
-Categories=Utility;AI;
+Categories=Utility;AI;System;
 StartupNotify=true
+X-KDE-StartupNotify=true
 `;
 
   await writeFile(`${appsDir}/hermes-deck.desktop`, desktopContent, 'utf-8');
 
-  // Create gateway launcher (runs in background)
-  const gatewayDesktopContent = `[Desktop Entry]
-Name=Hermes Deck (Gateway)
-Comment=Background Hermes Agent service for Steam Deck
-Exec=${hermesBin} gateway
+  // Also create a TUI shortcut (opens in terminal)
+  const tuiContent = `[Desktop Entry]
+Name=Hermes Deck (Terminal)
+Comment=Open Hermes Agent TUI in Konsole
+Exec=konsole -e ${hermesBin}
+Icon=utilities-terminal
 Terminal=false
 Type=Application
-Categories=Utility;AI;
-StartupNotify=false
+Categories=Utility;AI;System;
+StartupNotify=true
+X-KDE-StartupNotify=true
 `;
 
-  await writeFile(`${appsDir}/hermes-deck-gateway.desktop`, gatewayDesktopContent, 'utf-8');
+  await writeFile(`${appsDir}/hermes-deck-tui.desktop`, tuiContent, 'utf-8');
 
-  return {
-    success: true,
-    message: `Desktop entries created at ~/.local/share/applications/`,
-  };
+  let message = `Desktop entries created at ~/.local/share/applications/`;
+  message += `\n  → "Hermes Deck" in your app menu`;
+
+  return { success: true, message };
 }

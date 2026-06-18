@@ -2,10 +2,9 @@
 /**
  * HermDeck — 🎮 One-command Hermes Agent installer for Steam Deck
  *
- * Usage: npx @asukat/hermdeck
- *   or:  curl -fsSL https://raw.githubusercontent.com/KleirRampage45/hermdeck/main/scripts/bootstrap.sh | sh
- *
- * Zero external dependencies. Pure Node.js + ANSI colors.
+ * Usage: curl -fsSL https://raw.githubusercontent.com/KleirRampage45/hermdeck/main/scripts/bootstrap.sh | sh
+ *   or:  npx @asukat/hermdeck
+ *   or:  npx @asukat/hermdeck --setup    (re-run config + services)
  */
 
 import { execSync } from 'child_process';
@@ -16,7 +15,7 @@ import { setupService, isServiceRunning } from './systemd';
 import { setupDesktopEntries } from './desktop';
 import { sudoNoPassword, promptAndCacheSudo } from './sudo';
 
-// ── ANSI Helpers ──────────────────────────────────────
+// ── ANSI Helpers (zero deps) ─────────────────────────
 const c = {
   cyan: (s: string) => `\x1b[36m${s}\x1b[0m`,
   green: (s: string) => `\x1b[32m${s}\x1b[0m`,
@@ -28,13 +27,13 @@ const c = {
 
 const BANNER = `
 ${c.cyan('╔══════════════════════════════════════════╗')}
-${c.cyan('║')}          ${c.bold('🎮 HermDeck v0.1.2')}          ${c.cyan('║')}
+${c.cyan('║')}          ${c.bold('🎮 HermDeck v0.1.3')}          ${c.cyan('║')}
 ${c.cyan('║')}     ${c.dim('"Deck your agent in one command"')}     ${c.cyan('║')}
 ${c.cyan('╚══════════════════════════════════════════╝')}
 `;
 
 function step(n: number, label: string) {
-  console.log(c.cyan(`\n  ── [${n}/8] ${label} ──\n`));
+  console.log(c.cyan(`\n  ── [${n}] ${label} ──\n`));
 }
 
 function ok(msg: string) { console.log(`  ${c.green('✓')} ${msg}`); }
@@ -62,12 +61,46 @@ async function progress(label: string, fn: () => Promise<{ success: boolean; mes
   }
 }
 
-// ── Main ───────────────────────────────────────────────
+// ── Setup Mode (re-run config + services without reinstalling) ──
+async function runSetupMode(homeDir: string) {
+  console.log(c.dim('\n  Setup mode — configures services for an existing Hermes install.\n'));
 
+  step(1, 'Configuration');
+  const config = await configWizard(homeDir);
+  await writeHermesConfig(homeDir, config);
+  ok('Configuration saved to ~/.hermes/config.yaml');
+
+  step(2, 'Auto-start Service');
+  const serviceResult = await setupService(homeDir);
+  ok(serviceResult.message);
+  if (isServiceRunning()) ok('Hermes Agent is RUNNING');
+  else info('Run: systemctl --user start hermes-agent.service');
+
+  step(3, 'Desktop Integration');
+  const desktopResult = await setupDesktopEntries(homeDir);
+  ok(desktopResult.message);
+
+  console.log(`\n${c.green('╔══════════════════════════════════════════╗')}`);
+  console.log(`${c.green('║')}     ${c.bold('✅ Setup Complete!')}                 ${c.green('║')}`);
+  console.log(`${c.green('╚══════════════════════════════════════════╝')}`);
+  console.log(c.cyan('\n  → Find "Hermes Deck" in your application menu'));
+  console.log(c.cyan('  → Type "hermes" in Konsole'));
+  console.log(c.dim(`\n  ${c.cyan('github.com/KleirRampage45/hermdeck')}\n`));
+}
+
+// ── Main ───────────────────────────────────────────────
 async function main() {
   console.log(BANNER);
 
   const homeDir = process.env.HOME || '/home/deck';
+  const args = process.argv.slice(2);
+
+  // Handle --setup flag (re-run config + services only)
+  if (args.includes('--setup') || args.includes('-s')) {
+    await runSetupMode(homeDir);
+    return;
+  }
+
   const startTime = Date.now();
 
   // ── Step 1: System Checks ───────────────────────────
@@ -94,7 +127,9 @@ async function main() {
   }
 
   if (sys.hasHermes) {
-    warn('Existing Hermes Agent found at ~/.hermes/ — will upgrade');
+    warn('Existing Hermes Agent found at ~/.hermes/');
+    info('Run with --setup to configure services without reinstalling.');
+    info('Continuing with full install (will upgrade Hermes)...');
   }
 
   // ── Step 2: Sudo Access ─────────────────────────────
@@ -107,7 +142,7 @@ async function main() {
       info('Your password is never stored — cached via sudo -v for 5 minutes.\n');
       const gotSudo = await promptAndCacheSudo();
       if (!gotSudo) {
-        warn('Sudo access not granted. Git install will fail if missing, but other steps continue.');
+        warn('Sudo access not granted. Git install may fail.');
       } else {
         ok('Sudo access granted');
       }
@@ -142,7 +177,7 @@ async function main() {
     fail('Hermes Agent installation failed.');
     console.log(c.yellow(`\n  ${installResult?.message}`));
     console.log(c.dim('\n  Retry manually:'));
-    console.log(c.dim('    curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --non-interactive --skip-setup\n'));
+    console.log(c.dim('    curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash\n'));
     process.exit(1);
   }
 
@@ -163,7 +198,6 @@ async function main() {
   step(7, 'Desktop Integration');
   const desktopResult = await setupDesktopEntries(homeDir);
   ok(desktopResult.message);
-  info('Find "Hermes Deck Agent" in your application menu');
 
   // ── Step 8: Done! ───────────────────────────────────
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -173,9 +207,9 @@ async function main() {
   console.log(`${c.green('╚══════════════════════════════════════════╝')}`);
 
   console.log(c.cyan('\n  What now?\n'));
-  console.log(`  ${c.bold('→')} Chat with your agent on Telegram via @YourBot`);
+  console.log(`  ${c.bold('→')} Find ${c.cyan('"Hermes Deck"')} in your application menu`);
   console.log(`  ${c.bold('→')} Type ${c.cyan('hermes')} in Konsole for the TUI`);
-  console.log(`  ${c.bold('→')} Find ${c.cyan('"Hermes Deck Agent"')} in your app menu\n`);
+  console.log(`  ${c.bold('→')} Run ${c.cyan('npx @asukat/hermdeck --setup')} to reconfigure anytime\n`);
 
   console.log(c.green('  📌 Survives SteamOS updates'));
   console.log(c.green('  📌 Auto-starts at boot'));
@@ -188,6 +222,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`\n${c.red('  ✗ HermDeck failed:')} ${err.message}`);
+  console.error(`\n\x1b[31m  ✗ HermDeck failed: ${err.message}\x1b[0m`);
   process.exit(1);
 });
