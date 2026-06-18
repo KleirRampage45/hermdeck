@@ -1,20 +1,22 @@
 # 🎮 HermDeck
 
-### One command. Your Steam Deck gets an agent.
+**One command. Your Steam Deck gets an agent.**
+
+Copy and paste this into Konsole:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/KleirRampage45/hermdeck/main/scripts/bootstrap.sh | sh
 ```
 
-> No Node.js? No problem. The bootstrap installs it for you.
+> No Node.js? No problem. The bootstrap installs it for you.  
+> Changed your sudo password? It prompts you once and never stores it.  
+> SteamOS updates? Everything survives in `/home/deck/`.
 
-Or if you already have Node.js:
+### Already have Node.js?
 
 ```
 npx @asukat/hermdeck
 ```
-
-HermDeck installs **Hermes Agent** on your Steam Deck — a self-improving AI agent that runs on your device, survives system updates, and you can talk to from anywhere.
 
 ---
 
@@ -38,13 +40,15 @@ HermDeck installs **Hermes Agent** on your Steam Deck — a self-improving AI ag
 
 ### Install
 
-Open **Konsole** (Steam button → type "Konsole" → Enter) and paste:
+Open **Konsole** (Steam button → type "Konsole" → Enter) and paste the command at the top of this page.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/KleirRampage45/hermdeck/main/scripts/bootstrap.sh | sh
-```
-
-The bootstrap installs Node.js (if needed), then runs the interactive installer.
+The bootstrap:
+1. Detects SteamOS
+2. Installs Node.js to `~/.local/bin/` (if missing)
+3. Prompts for sudo password only if needed
+4. Runs the interactive HermDeck installer
+5. Guides you through provider + Telegram setup
+6. Sets up auto-start via systemd
 
 ### After install
 
@@ -53,7 +57,6 @@ The bootstrap installs Node.js (if needed), then runs the interactive installer.
 | Chat with your agent | Open Telegram and message your bot |
 | Open the terminal TUI | Type `hermes` in Konsole |
 | Launch the desktop app | Find "Hermes Deck Agent" in the app menu |
-| Manage skills & config | `npx @asukat/hermdeck --configure` |
 
 ---
 
@@ -90,8 +93,8 @@ The bootstrap installs Node.js (if needed), then runs the interactive installer.
 | SteamOS wipes `/usr` on updates | Everything installs to `/home/deck/` |
 | Systemd services get lost | User services in `~/.config/systemd/user/` persist |
 | No Node.js on Steam Deck | Bootstrap installs to `~/.local/bin/` |
-| Sudo password changed | Prompts for password once, caches via `sudo -v` |
-| Manual config is tedious | Interactive TUI handles everything |
+| Sudo password changed | Prompts once, caches via `sudo -v` |
+| Manual config is tedious | Interactive wizard handles everything |
 | "How do I even start?" | One command. That's the point. |
 
 ---
@@ -100,10 +103,9 @@ The bootstrap installs Node.js (if needed), then runs the interactive installer.
 
 | Command | What it does |
 |---------|-------------|
-| `curl -fsSL ...bootstrap.sh \| sh` | Bootstrap + install (recommended) |
+| `curl -fsSL ...bootstrap.sh \| sh` | **Recommended** — bootstrap + install |
 | `npx @asukat/hermdeck` | Full install wizard (if Node.js is available) |
 | `npx @asukat/hermdeck --upgrade` | Update Hermes Agent to latest |
-| `npx @asukat/hermdeck --uninstall` | Remove Hermes Agent and all artifacts |
 
 ---
 
